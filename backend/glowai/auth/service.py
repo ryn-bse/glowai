@@ -112,6 +112,11 @@ def register_user(step1: dict, step2: dict, step3: dict) -> tuple[dict, str]:
             password_hash = hash_password(step3["password"])
     except ValueError as e:
         raise AuthError(str(e), status=409)
+    except Exception as e:
+        # Log the actual error for debugging
+        import traceback
+        traceback.print_exc()
+        raise AuthError(f"Registration failed: {str(e)}", status=500)
 
     user_data = {
         **step1,

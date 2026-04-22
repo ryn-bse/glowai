@@ -49,10 +49,16 @@ def supabase_register(email: str, password: str) -> dict:
             raise ValueError("Registration failed.")
         return {"id": res.user.id, "email": res.user.email}
     except Exception as e:
-        msg = str(e)
-        if "already registered" in msg.lower() or "already been registered" in msg.lower() or "already exists" in msg.lower():
+        msg = str(e).lower()
+        # Check for common error patterns
+        if "already registered" in msg or "already been registered" in msg or "already exists" in msg or "user_already_exists" in msg:
             raise ValueError("An account with this email already exists.")
-        raise ValueError(f"Registration failed: {msg}")
+        if "invalid" in msg and "email" in msg:
+            raise ValueError("Invalid email address.")
+        if "password" in msg and ("weak" in msg or "short" in msg or "minimum" in msg):
+            raise ValueError("Password must be at least 8 characters.")
+        # Return the actual error for debugging
+        raise ValueError(f"Registration failed: {str(e)}")
 
 
 def supabase_login(email: str, password: str) -> dict:
