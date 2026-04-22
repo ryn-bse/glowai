@@ -3,22 +3,26 @@ from glowai.db import get_db
 
 def create_user(data: dict) -> dict:
     db = get_db()
-    row = db.table("users").insert({
-        "email": data["email"].lower().strip(),
-        "password_hash": data.get("password_hash", ""),
-        "first_name": data.get("first_name", ""),
-        "last_name": data.get("last_name", ""),
-        "phone": data.get("phone", ""),
-        "date_of_birth": data.get("date_of_birth") or None,
-        "gender": data.get("gender"),
-        "skin_type": data.get("skin_type"),
-        "primary_concern": data.get("primary_concern"),
-        "skin_tone": data.get("skin_tone"),
-        "known_allergies": data.get("known_allergies", []),
-        "oauth_provider": data.get("oauth_provider"),
-        "oauth_id": data.get("oauth_id"),
-    }).execute()
-    return _to_dict(row.data[0])
+    try:
+        row = db.table("users").insert({
+            "email": data["email"].lower().strip(),
+            "password_hash": data.get("password_hash", ""),
+            "first_name": data.get("first_name", ""),
+            "last_name": data.get("last_name", ""),
+            "phone": data.get("phone", ""),
+            "date_of_birth": data.get("date_of_birth") or None,
+            "gender": data.get("gender"),
+            "skin_type": data.get("skin_type"),
+            "primary_concern": data.get("primary_concern"),
+            "skin_tone": data.get("skin_tone"),
+            "known_allergies": data.get("known_allergies", []),
+            "oauth_provider": data.get("oauth_provider"),
+            "oauth_id": data.get("oauth_id"),
+        }).execute()
+        return _to_dict(row.data[0])
+    except Exception as e:
+        print(f"Error creating user: {str(e)}")
+        raise
 
 
 def find_by_email(email: str) -> dict | None:

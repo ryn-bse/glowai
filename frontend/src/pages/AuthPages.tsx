@@ -84,17 +84,21 @@ export default function AuthPages() {
     if (s3.password !== s3.confirm_password) { setErrors({ confirm_password: 'Passwords do not match.' }); return }
     setLoading(true); setErrors({})
     try {
+      console.log('Registering user with data:', { step1: s1, step2: s2 })
       const res = await apiClient.post('/auth/register', {
         step1: s1,
         step2: { ...s2, known_allergies: s2.known_allergies.split(',').map(x => x.trim()).filter(Boolean) },
         step3: { password: s3.password, terms_agreed: s3.terms_agreed },
       })
+      console.log('Registration successful:', res.data)
       login(res.data.user, res.data.token)
       navigate('/dashboard')
     } catch (err: unknown) {
       const e = err as { response?: { data?: { fields?: Record<string, string>; error?: string }; status?: number } }
       console.error('Registration error:', e.response?.data)
-      setErrors(e.response?.data?.fields ?? { general: e.response?.data?.error ?? 'Registration failed. Please try again.' })
+      const errorMsg = e.response?.data?.error || 'Registration failed. Please try again.'
+      setErrors(e.response?.data?.fields ?? { general: errorMsg })
+      alert(`Registration failed: ${errorMsg}`) // Show alert for debugging
     } finally { setLoading(false) }
   }
 
