@@ -117,23 +117,25 @@ def create_app():
 
 
 # Create app instance for Vercel
+# Ensure 'app' is always defined at module level for Vercel
+app = None
+
 try:
     app = create_app()
     print("✓ Flask app created successfully", file=sys.stderr)
 except Exception as e:
-    import sys
-    import traceback
     print("=" * 80, file=sys.stderr)
     print("FATAL ERROR: Failed to create Flask app", file=sys.stderr)
     print(f"{type(e).__name__}: {str(e)}", file=sys.stderr)
     traceback.print_exc()
     print("=" * 80, file=sys.stderr)
     
-    # Create a minimal error app
+    # Create a minimal error app that shows the initialization error
     app = Flask(__name__)
     
     @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
-    def error_handler(path):
+    @app.route('/', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+    def error_handler(path=''):
         return jsonify({
             "error": "app_initialization_failed",
             "message": str(e),
