@@ -50,11 +50,14 @@ export default function AuthPages() {
     setLoading(true); setErrors({})
     try {
       const fields = step === 1 ? s1 : step === 2 ? s2 : s3
+      console.log('Validating step:', step, 'with fields:', fields)
       const res = await apiClient.post('/auth/validate-step', { step, fields })
+      console.log('Validation response:', res.data)
       if (res.data.valid) setStep(s => (s < 3 ? (s + 1) as Step : s))
       else setErrors(res.data.errors ?? {})
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { errors?: Record<string, string> } } }
+      const e = err as { response?: { data?: { errors?: Record<string, string> }; status?: number } }
+      console.error('Validation error:', e.response)
       setErrors(e.response?.data?.errors ?? { general: 'Validation failed.' })
     } finally { setLoading(false) }
   }
