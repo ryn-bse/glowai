@@ -94,9 +94,20 @@ export default function AuthPages() {
       login(res.data.user, res.data.token)
       navigate('/dashboard')
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { fields?: Record<string, string>; error?: string }; status?: number } }
-      console.error('Registration error:', e.response?.data)
-      const errorMsg = e.response?.data?.error || 'Registration failed. Please try again.'
+      const e = err as { response?: { data?: { fields?: Record<string, string>; error?: string }; status?: number }; message?: string }
+      console.error('Registration error:', err)
+      console.error('Response data:', e.response?.data)
+      
+      // Extract error message properly
+      let errorMsg = 'Registration failed. Please try again.'
+      if (e.response?.data?.error) {
+        errorMsg = typeof e.response.data.error === 'string' 
+          ? e.response.data.error 
+          : JSON.stringify(e.response.data.error)
+      } else if (e.message) {
+        errorMsg = e.message
+      }
+      
       setErrors(e.response?.data?.fields ?? { general: errorMsg })
       alert(`Registration failed: ${errorMsg}`) // Show alert for debugging
     } finally { setLoading(false) }

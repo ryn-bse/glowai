@@ -46,13 +46,20 @@ def register():
         user, token = register_user(step1, step2, step3)
         return jsonify({"user": _serialize(user), "token": token}), 201
     except RegistrationValidationError as e:
-        return jsonify({"error": "validation_error", "fields": e.field_errors}), 400
+        return jsonify({"error": "Validation failed. Please check your input.", "fields": e.field_errors}), 400
     except AuthError as e:
         return jsonify({"error": e.message}), e.status
     except Exception as e:
         # Log the full error for debugging
         import traceback
+        import sys
+        print("=" * 80, file=sys.stderr)
+        print("REGISTRATION ERROR:", file=sys.stderr)
+        print(f"Step1: {step1}", file=sys.stderr)
+        print(f"Step2: {step2}", file=sys.stderr)
+        print(f"Error: {str(e)}", file=sys.stderr)
         traceback.print_exc()
+        print("=" * 80, file=sys.stderr)
         return jsonify({"error": f"Registration failed: {str(e)}"}), 500
 
 
