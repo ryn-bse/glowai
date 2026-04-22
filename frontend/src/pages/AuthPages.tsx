@@ -28,7 +28,7 @@ export default function AuthPages() {
   const [showPw, setShowPw] = useState(false)
   const [showConfirmPw, setShowConfirmPw] = useState(false)
 
-  const [s1, setS1] = useState({ first_name: '', last_name: '', email: '', phone: '', date_of_birth: '', gender: '' })
+  const [s1, setS1] = useState({ first_name: '', last_name: '', email: '', gender: '' })
   const [s2, setS2] = useState({ skin_type: '', primary_concern: '', skin_tone: '', known_allergies: '' })
   const [s3, setS3] = useState({ password: '', confirm_password: '', terms_agreed: false, marketing: false })
   const [loginData, setLoginData] = useState({ email: '', password: '' })
@@ -222,27 +222,13 @@ export default function AuthPages() {
                     {errors.email && <p className="input-error">{errors.email}</p>}
                   </div>
                   <div className="input-group">
-                    <label className="input-label">Phone Number</label>
-                    <input className={`input ${errors.phone ? 'error' : ''}`} type="tel" placeholder="+91 98765 43210"
-                      value={s1.phone} onChange={e => setS1(d => ({ ...d, phone: e.target.value }))} />
-                    {errors.phone && <p className="input-error">{errors.phone}</p>}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <div className="input-group">
-                      <label className="input-label">Date of Birth *</label>
-                      <input className={`input ${errors.date_of_birth ? 'error' : ''}`} type="date"
-                        value={s1.date_of_birth} onChange={e => setS1(d => ({ ...d, date_of_birth: e.target.value }))} />
-                      {errors.date_of_birth && <p className="input-error">{errors.date_of_birth}</p>}
-                    </div>
-                    <div className="input-group">
-                      <label className="input-label">Gender *</label>
-                      <select className={`input ${errors.gender ? 'error' : ''}`}
-                        value={s1.gender} onChange={e => setS1(d => ({ ...d, gender: e.target.value }))}>
-                        <option value="">Select</option>
-                        {GENDERS.map(g => <option key={g}>{g}</option>)}
-                      </select>
-                      {errors.gender && <p className="input-error">{errors.gender}</p>}
-                    </div>
+                    <label className="input-label">Gender *</label>
+                    <select className={`input ${errors.gender ? 'error' : ''}`}
+                      value={s1.gender} onChange={e => setS1(d => ({ ...d, gender: e.target.value }))}>
+                      <option value="">Select</option>
+                      {GENDERS.map(g => <option key={g}>{g}</option>)}
+                    </select>
+                    {errors.gender && <p className="input-error">{errors.gender}</p>}
                   </div>
                 </div>
               )}

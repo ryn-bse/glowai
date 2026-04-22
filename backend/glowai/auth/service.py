@@ -11,7 +11,7 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
 
 # Step field requirements
-STEP1_REQUIRED = ["first_name", "last_name", "email", "date_of_birth", "gender"]
+STEP1_REQUIRED = ["first_name", "last_name", "email", "gender"]
 STEP2_REQUIRED = ["skin_type", "primary_concern", "skin_tone"]
 STEP3_REQUIRED = ["password"]
 
