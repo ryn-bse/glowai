@@ -1,0 +1,275 @@
+# Implementation Plan: GlowAI – AI Powered Skin Analyzer & Cosmetic Recommendation System
+
+## Overview
+
+Implement GlowAI as a monorepo with a React.js frontend (`frontend/`) and a Flask backend (`backend/`). The AI pipeline lives inside the backend as a `glowai/pipeline/` module. MongoDB is the data store. Tasks are ordered so each step builds on the previous, ending with full integration.
+
+## Tasks
+
+- [x] 1. Scaffold monorepo project structure
+  - Create `frontend/` (React + Vite + TypeScript) and `backend/` (Flask) directories
+  - Add `backend/requirements.txt` with: flask, flask-cors, pymongo, bcrypt, pyjwt, pillow, numpy, tensorflow, mtcnn, opencv-python, reportlab, hypothesis, pytest
+  - Add `frontend/package.json` with: react, react-dom, typescript, axios, react-router-dom, msw, fast-check, jest, @testing-library/react
+  - Create `backend/glowai/__init__.py` and `backend/glowai/pipeline/__init__.py` package stubs
+  - Create `backend/app.py` Flask entry point that registers all blueprints
+  - Create `frontend/src/main.tsx` and `frontend/src/apiClient.ts` (Axios instance with auth header injection)
+  - _Requirements: 13.1_
+
+- [x] 2. Define MongoDB data models and database setup
+  - [x] 2.1 Implement `backend/glowai/db.py` with PyMongo client, collection accessors, and index creation
+    - Create indexes: `users.email` (unique), `analyses` compound `(user_id, created_at desc)`, `products` multikey on `target_skin_types/target_conditions/ingredients`, `sessions.token_hash` (unique) + `expires_at` (TTL)
+    - _Requirements: 12.1, 12.2, 8.2_
+  - [x] 2.2 Implement `backend/glowai/models/user.py` — User document schema, `create_user`, `find_by_email`, `find_by_id`, `update_profile`, `soft_delete`
+    - _Requirements: 1.1, 1.2, 1.3, 14.4_
+  - [x] 2.3 Implement `backend/glowai/models/analysis.py` — Analysis document schema, `save_analysis`, `get_by_id`, `get_history_for_user`
+    - _Requirements: 8.1, 8.2, 10.2_
+  - [x] 2.4 Implement `backend/glowai/models/product.py` — Product document schema, `insert_product`, `update_product`, `query_products`
+    - Validate all required fields before insert/update; reject and raise `ValidationError` if any are missing
+    - _Requirements: 12.1, 12.3, 12.4_
+  - [x] 2.5 Implement `backend/glowai/models/session.py` — Session document schema, `create_session`, `invalidate_session`, `find_valid_session`
+    - _Requirements: 2.3, 2.5_
+  - [ ]* 2.6 Write property test for product validation invariant
+    - **Property 18: Product Validation Invariant**
+    - **Validates: Requirements 12.1, 12.3, 12.4**
+  - [ ]* 2.7 Write property test for product query correctness
+    - **Property 19: Product Query Correctness**
+    - **Validates: Requirements 12.2**
+
+- [x] 3. Implement Auth Service
+  - [x] 3.1 Implement `backend/glowai/auth/service.py` — `register_user` (3-step validation), `login_user`, `logout_user`, `hash_password`, `verify_password`, `issue_jwt`, `validate_jwt`
+    - Use bcrypt with per-user salt for password hashing
+    - JWT payload: `user_id`, `exp`; validate on every protected request
+    - Return identical error message for wrong email vs wrong password
+    - _Requirements: 1.1–1.7, 2.1–2.5, 14.1_
+  - [x] 3.2 Implement `backend/glowai/auth/oauth.py` — Google OAuth 2.0 flow: redirect, callback, token exchange, upsert user
+    - _Requirements: 1.6_
+  - [x] 3.3 Implement `@require_auth` decorator in `backend/glowai/auth/decorators.py`
+    - Return HTTP 401 for missing, expired, or invalidated tokens
+    - _Requirements: 2.3, 2.4, 13.2, 13.4_
+  - [x] 3.4 Register `auth_bp` Flask Blueprint at `/api/auth` with routes: `POST /register`, `POST /login`, `POST /logout`, `GET /oauth/google`, `GET /oauth/google/callback`
+    - _Requirements: 13.1_
+  - [ ]* 3.5 Write property test for registration step validation
+    - **Property 1: Registration Step Validation Rejects Missing Fields**
+    - **Validates: Requirements 1.1, 1.2, 1.3, 1.4**
+  - [ ]* 3.6 Write property test for duplicate email rejection
+    - **Property 2: Duplicate Email Registration Rejected**
+    - **Validates: Requirements 1.7**
+  - [ ]* 3.7 Write property test for login round trip
+    - **Property 3: Login Round Trip**
+    - **Validates: Requirements 2.1, 2.3**
+  - [ ]* 3.8 Write property test for indistinguishable auth error
+    - **Property 4: Invalid Credentials Return Indistinguishable Error**
+    - **Validates: Requirements 2.2**
+  - [ ]* 3.9 Write property test for logout token invalidation
+    - **Property 5: Logout Invalidates Token**
+    - **Validates: Requirements 2.5**
+  - [ ]* 3.10 Write property test for password hashing uniqueness
+    - **Property 22: Password Hashing Uniqueness**
+    - **Validates: Requirements 14.1**
+
+- [x] 4. Checkpoint — Ensure all auth and model tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 5. Implement Image Ingestion Endpoint
+  - [x] 5.1 Implement `backend/glowai/api/analysis_bp.py` route `POST /api/analysis/submit`
+    - Accept `multipart/form-data` with `image` field
+    - Validate MIME type (JPEG/PNG/WebP), file size ≤ 10 MB, resolution ≥ 224×224
+    - Store raw image bytes to cloud object storage; record `image_url` on the analysis document
+    - Return HTTP 400 with structured error body for any validation failure
+    - _Requirements: 3.1, 3.2, 3.4, 13.3, 13.5_
+  - [x] 5.2 Implement `frontend/src/components/ImageCapture.tsx`
+    - File input accepting JPEG/PNG/WebP; webcam capture via `getUserMedia` with live preview
+    - Show preview before submit; display server-side validation errors inline
+    - _Requirements: 3.1, 3.2, 3.3_
+  - [ ]* 5.3 Write property test for image format and size validation
+    - **Property 6: Image Format and Size Validation**
+    - **Validates: Requirements 3.1, 3.2, 3.4**
+
+- [x] 6. Implement Image Preprocessing Pipeline
+  - [x] 6.1 Implement `backend/glowai/pipeline/preprocessor.py` — `preprocess(image_bytes) -> np.ndarray`
+    - Resize to 224×224, normalize pixels to [0.0, 1.0], compute Laplacian blur score, reject if below threshold with `PreprocessError`
+    - Output tensor shape must be (224, 224, 3) float32
+    - _Requirements: 4.1, 4.2, 4.4, 4.5_
+  - [ ]* 6.2 Write property test for preprocessor output invariant
+    - **Property 7: Preprocessor Output Invariant**
+    - **Validates: Requirements 4.1, 4.2, 4.5**
+  - [ ]* 6.3 Write property test for blur filter rejection
+    - **Property 8: Blur Filter Rejects Low-Quality Images**
+    - **Validates: Requirements 4.4, 3.5**
+  - [ ]* 6.4 Write unit tests for preprocessor
+    - Test resize correctness, normalization range, blur threshold boundary, `PreprocessError` on bad input
+    - _Requirements: 4.1–4.5_
+
+- [x] 7. Implement Face Detection and Region Segmentation
+  - [x] 7.1 Implement `backend/glowai/pipeline/face_detector.py` — `detect_and_segment(tensor) -> FaceRegions`
+    - Use MTCNN to detect faces; raise `NoFaceError` for 0 faces, `MultipleFacesError` for >1
+    - Segment into four regions: forehead, left_cheek, right_cheek, chin; return bounding boxes with non-negative integer coordinates
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+  - [ ]* 7.2 Write property test for face region segmentation invariant
+    - **Property 9: Face Detection Region Segmentation Invariant**
+    - **Validates: Requirements 5.1, 5.2, 5.5**
+  - [ ]* 7.3 Write property test for face count error conditions
+    - **Property 10: Face Count Error Conditions**
+    - **Validates: Requirements 5.3, 5.4**
+  - [ ]* 7.4 Write unit tests for face detector
+    - Test single-face image returns 4 regions, zero-face raises `NoFaceError`, multi-face raises `MultipleFacesError`
+    - _Requirements: 5.1–5.5_
+
+- [x] 8. Implement CNN Classifier
+  - [x] 8.1 Implement `backend/glowai/pipeline/cnn_classifier.py` — `classify(regions: FaceRegions) -> AnalysisResult`
+    - Load TensorFlow/Keras model; run inference on each region crop
+    - Return `skin_type` (one of 5 enum values), per-type confidence scores, detected conditions (above 0.50 threshold) with per-condition confidence and bounding boxes
+    - Set `low_confidence_flag = True` when highest skin-type confidence < 0.60
+    - Return empty `conditions` list when all condition scores < 0.50
+    - _Requirements: 6.1, 6.2, 6.3, 7.1, 7.2, 7.3, 7.4_
+  - [ ]* 8.2 Write property test for classifier output validity invariant
+    - **Property 11: Classifier Output Validity Invariant**
+    - **Validates: Requirements 6.1, 6.2, 7.1, 7.2, 7.3**
+  - [ ]* 8.3 Write property test for low-confidence flag invariant
+    - **Property 12: Low-Confidence Flag Invariant**
+    - **Validates: Requirements 6.3**
+  - [ ]* 8.4 Write property test for condition threshold filter
+    - **Property 13: Condition Threshold Filter**
+    - **Validates: Requirements 7.4**
+  - [ ]* 8.5 Write unit tests for CNN classifier
+    - Test known skin image produces expected skin type, condition detection above/below threshold, bounding box presence
+    - _Requirements: 6.1–6.3, 7.1–7.4_
+
+- [x] 9. Checkpoint — Ensure all pipeline tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 10. Implement Recommendation Engine
+  - [x] 10.1 Implement `backend/glowai/pipeline/recommender.py` — `recommend(analysis, user_profile) -> list[ProductScore]`
+    - Content-based scoring: ingredient-condition compatibility matrix from MongoDB
+    - Collaborative filtering: cosine similarity over binary skin-profile feature vectors
+    - Final score: `compatibility_score = 0.7 * content_score + 0.3 * cf_score`
+    - Hard-filter allergens before scoring: exclude any product whose ingredients intersect `user_profile.known_allergies`
+    - Return top-10 products sorted by `compatibility_score` descending; each score in [0.0, 1.0]
+    - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
+  - [ ]* 10.2 Write property test for recommendation output invariant
+    - **Property 15: Recommendation Output Invariant**
+    - **Validates: Requirements 9.1, 9.4, 9.5**
+  - [ ]* 10.3 Write property test for allergen exclusion
+    - **Property 16: Allergen Exclusion**
+    - **Validates: Requirements 9.6**
+  - [ ]* 10.4 Write unit tests for recommender
+    - Test allergen exclusion removes correct products, score ordering, empty product DB returns empty list
+    - _Requirements: 9.1–9.6_
+
+- [x] 11. Implement Analysis Result Aggregation and Persistence
+  - [x] 11.1 Wire the full pipeline in `backend/glowai/api/analysis_bp.py` `POST /submit` handler
+    - Call `preprocess → detect_and_segment → classify → recommend` in sequence
+    - Catch `PreprocessError`, `NoFaceError`, `MultipleFacesError` and map to HTTP 422 with structured body
+    - Aggregate `AnalysisResult` + `recommendations` into analysis document and persist via `save_analysis`
+    - Return JSON result to frontend within the 10-second SLA
+    - _Requirements: 8.1, 8.2, 8.3, 13.1, 13.5_
+  - [x] 11.2 Implement `GET /api/analysis/history` — return analyses for authenticated user sorted newest-first
+    - _Requirements: 10.2, 17_
+  - [x] 11.3 Implement `GET /api/analysis/<analysis_id>` — return single analysis; return 403/404 if not owned by requesting user
+    - _Requirements: 10.3, 14.5_
+  - [ ]* 11.4 Write property test for analysis persistence round trip
+    - **Property 14: Analysis Persistence Round Trip**
+    - **Validates: Requirements 8.1, 8.2**
+  - [ ]* 11.5 Write property test for analysis history ordering
+    - **Property 17: Analysis History Ordering**
+    - **Validates: Requirements 10.2**
+
+- [x] 12. Implement Remaining REST API Blueprints
+  - [x] 12.1 Implement `recommendation_bp` at `/api/recommendations`
+    - `GET /current` — return latest recommendations for authenticated user
+    - `POST /refresh` — re-run recommender with current profile, persist updated recommendations
+    - _Requirements: 9.7, 13.1_
+  - [x] 12.2 Implement `profile_bp` at `/api/profile`
+    - `GET /` — return authenticated user's profile
+    - `PUT /` — update skin type, concerns, allergies; trigger recommendation refresh
+    - _Requirements: 10.5, 13.1_
+  - [x] 12.3 Implement `product_bp` at `/api/products`
+    - `GET /` — query products with optional `skin_type` / `skin_condition` filters
+    - `POST /` (admin) and `PUT /<product_id>` (admin) — insert/update with field validation
+    - _Requirements: 12.1–12.4, 13.1_
+  - [x] 12.4 Implement global error handlers in `backend/app.py`
+    - 400 for validation errors, 401 for auth failures, 403 for forbidden, 404 for not found, 500 for internal errors
+    - All responses in JSON except PDF download endpoint
+    - _Requirements: 13.3, 13.4, 13.5_
+  - [ ]* 12.5 Write property test for auth enforcement on protected endpoints
+    - **Property 20: Auth Enforcement on Protected Endpoints**
+    - **Validates: Requirements 2.4, 13.2, 13.4**
+  - [ ]* 12.6 Write property test for malformed request returns HTTP 400
+    - **Property 21: Malformed Request Returns HTTP 400**
+    - **Validates: Requirements 13.3, 13.5**
+  - [ ]* 12.7 Write property test for user data isolation
+    - **Property 23: User Data Isolation**
+    - **Validates: Requirements 14.5**
+
+- [x] 13. Checkpoint — Ensure all API and integration tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 14. Implement PDF Report Generation
+  - [x] 14.1 Implement `backend/glowai/reports/generator.py` — `generate_report(analysis_id, user) -> bytes`
+    - Use ReportLab to produce PDF with: GlowAI branding header, user name, analysis date, skin type + confidence, conditions with confidence scores, annotated facial image with bounding box overlays, top-10 product recommendations
+    - Store generated PDF to cloud storage; update `analyses.report_url`
+    - _Requirements: 11.1, 11.2, 11.3_
+  - [x] 14.2 Implement `report_bp` at `/api/report`
+    - `GET /<analysis_id>/download` — generate (or retrieve cached) PDF and stream as binary response
+    - Return HTTP 500 with `{"error": "report_generation_failed", "retry": true}` on failure
+    - _Requirements: 11.1, 11.2, 11.4, 13.1_
+  - [ ]* 14.3 Write unit tests for report generator
+    - Test PDF bytes are non-empty, failure path returns correct error structure, report contains expected sections
+    - _Requirements: 11.1–11.4_
+
+- [x] 15. Implement React Frontend Components
+  - [x] 15.1 Implement `frontend/src/context/AuthContext.tsx` and `AnalysisContext.tsx`
+    - React Context + `useReducer` for auth state (user, token) and analysis state (current, history)
+    - _Requirements: 2.3, 10.1_
+  - [x] 15.2 Implement `frontend/src/pages/AuthPages.tsx`
+    - Multi-step registration form (steps 1–3 matching requirements 1.1–1.3), login form, Google OAuth button
+    - Field-level validation errors displayed inline; prevent step progression on missing fields
+    - _Requirements: 1.1–1.7, 2.1, 2.2_
+  - [x] 15.3 Implement `frontend/src/components/Dashboard.tsx`
+    - Display current skin type, conditions, most recent analysis date
+    - Analysis history list in reverse chronological order; click to navigate to `AnalysisDetail`
+    - Current ranked recommendations with `RecommendationCard` components
+    - _Requirements: 10.1, 10.2, 10.4, 10.5_
+  - [x] 15.4 Implement `frontend/src/components/AnalysisDetail.tsx`
+    - Full result view: skin type, conditions, confidence scores, annotated image overlay with bounding boxes
+    - _Requirements: 10.3_
+  - [x] 15.5 Implement `frontend/src/components/RecommendationCard.tsx`
+    - Display product name, category, compatibility score, key ingredients
+    - _Requirements: 10.4_
+  - [x] 15.6 Implement `frontend/src/components/ReportViewer.tsx`
+    - Trigger PDF download via `GET /api/report/<id>/download`; show loading and error states with retry button
+    - _Requirements: 11.1, 11.4_
+  - [x] 15.7 Implement `frontend/src/components/ProfileEditor.tsx`
+    - Form to update skin type, concerns, allergies; call `PUT /api/profile`; refresh recommendations on save
+    - _Requirements: 9.7, 10.5_
+  - [ ]* 15.8 Write unit tests for ImageCapture component
+    - Test file input renders, webcam permission request, preview display, server error display
+    - _Requirements: 3.1–3.5_
+  - [ ]* 15.9 Write unit tests for Dashboard component
+    - Test history list renders newest-first, recommendation cards render, profile update reflects immediately
+    - _Requirements: 10.1–10.5_
+  - [ ]* 15.10 Write unit tests for RecommendationCard component
+    - Test all fields render, compatibility score formatted correctly
+    - _Requirements: 10.4_
+
+- [x] 16. Implement Frontend Property-Based Tests with fast-check
+  - [x] 16.1 Write fast-check property tests in `frontend/src/__tests__/recommendations.test.ts`
+    - Test that any array of products sorted by `compatibility_score` descending is always ordered correctly (validates client-side sort utility)
+    - Test that confidence score formatting always produces a string in "XX%" format for any float in [0.0, 1.0]
+    - _Requirements: 9.4, 9.5_
+  - [ ]* 16.2 Write fast-check property test for registration form validation
+    - For any combination of missing fields across steps 1–3, the form validator should return a non-empty error list and not advance the step
+    - _Requirements: 1.1–1.4_
+
+- [x] 17. Final Checkpoint — Ensure all tests pass end-to-end
+  - Ensure all tests pass (pytest backend, jest frontend), ask the user if questions arise.
+
+## Notes
+
+- Tasks marked with `*` are optional and can be skipped for a faster MVP
+- Each task references specific requirements for traceability
+- Property tests use `hypothesis` (backend, `@settings(max_examples=100)`) and `fast-check` (frontend)
+- Each property test file must include the tag comment: `# Feature: glow-ai-skin-analyzer, Property N: <property_text>`
+- Unit tests use `pytest` (backend) and `Jest` + `React Testing Library` (frontend)
+- Coverage target: 80% line coverage on all pipeline modules and API blueprints
+- The pipeline can be extracted to Celery tasks later without changing the API contract

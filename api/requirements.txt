@@ -1,0 +1,12 @@
+flask
+flask-cors
+pyjwt
+pillow
+numpy
+opencv-python-headless
+reportlab
+python-dotenv
+requests
+groq
+supabase
+bcrypt
