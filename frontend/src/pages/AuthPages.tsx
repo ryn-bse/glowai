@@ -71,8 +71,9 @@ export default function AuthPages() {
       login(res.data.user, res.data.token)
       navigate('/dashboard')
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { fields?: Record<string, string>; error?: string } } }
-      setErrors(e.response?.data?.fields ?? { general: e.response?.data?.error ?? 'Registration failed.' })
+      const e = err as { response?: { data?: { fields?: Record<string, string>; error?: string }; status?: number } }
+      console.error('Registration error:', e.response?.data)
+      setErrors(e.response?.data?.fields ?? { general: e.response?.data?.error ?? 'Registration failed. Please try again.' })
     } finally { setLoading(false) }
   }
 
