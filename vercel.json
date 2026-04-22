@@ -11,12 +11,5 @@
     }
   },
   "env": {
-    "MONGO_URI": "@mongo_uri",
-    "JWT_SECRET": "@jwt_secret",
-    "SUPABASE_URL": "@supabase_url",
-    "SUPABASE_ANON_KEY": "@supabase_anon_key",
-    "SUPABASE_SERVICE_KEY": "@supabase_service_key",
-    "GROQ_API_KEY": "@groq_api_key",
-    "FRONTEND_URL": "@frontend_url"
   }
 }
