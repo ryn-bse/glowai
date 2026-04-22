@@ -47,19 +47,37 @@ export default function AuthPages() {
   }
 
   const validateAndNext = async () => {
+    // Client-side validation only - skip server validation
     setLoading(true); setErrors({})
-    try {
-      const fields = step === 1 ? s1 : step === 2 ? s2 : s3
-      console.log('Validating step:', step, 'with fields:', fields)
-      const res = await apiClient.post('/auth/validate-step', { step, fields })
-      console.log('Validation response:', res.data)
-      if (res.data.valid) setStep(s => (s < 3 ? (s + 1) as Step : s))
-      else setErrors(res.data.errors ?? {})
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { errors?: Record<string, string> }; status?: number } }
-      console.error('Validation error:', e.response)
-      setErrors(e.response?.data?.errors ?? { general: 'Validation failed.' })
-    } finally { setLoading(false) }
+    
+    // Validate current step on client side
+    const newErrors: Record<string, string> = {}
+    
+    if (step === 1) {
+      if (!s1.first_name.trim()) newErrors.first_name = 'First name is required'
+      if (!s1.last_name.trim()) newErrors.last_name = 'Last name is required'
+      if (!s1.email.trim()) newErrors.email = 'Email is required'
+      else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s1.email)) newErrors.email = 'Invalid email address'
+      if (!s1.gender) newErrors.gender = 'Gender is required'
+    } else if (step === 2) {
+      if (!s2.skin_type) newErrors.skin_type = 'Skin type is required'
+      if (!s2.primary_concern) newErrors.primary_concern = 'Primary concern is required'
+      if (!s2.skin_tone) newErrors.skin_tone = 'Skin tone is required'
+    } else if (step === 3) {
+      if (!s3.password) newErrors.password = 'Password is required'
+      else if (s3.password.length < 8) newErrors.password = 'Password must be at least 8 characters'
+      if (!s3.terms_agreed) newErrors.terms_agreed = 'You must agree to the Terms of Service'
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      setLoading(false)
+      return
+    }
+    
+    // Move to next step
+    setStep(s => (s < 3 ? (s + 1) as Step : s))
+    setLoading(false)
   }
 
   const handleRegister = async () => {
