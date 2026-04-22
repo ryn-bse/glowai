@@ -49,6 +49,11 @@ def register():
         return jsonify({"error": "validation_error", "fields": e.field_errors}), 400
     except AuthError as e:
         return jsonify({"error": e.message}), e.status
+    except Exception as e:
+        # Log the full error for debugging
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Registration failed: {str(e)}"}), 500
 
 
 @auth_bp.route("/login", methods=["POST"])
