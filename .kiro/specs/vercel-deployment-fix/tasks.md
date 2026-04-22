@@ -1,0 +1,123 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - Vercel Production Deployment Failures
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the deployment bugs exist
+  - **Scoped PBT Approach**: Deploy current unfixed code to Vercel and test specific failure scenarios
+  - Test API routing: Frontend `/api` calls should reach serverless functions (will fail on unfixed code)
+  - Test error serialization: Authentication errors should show readable messages, not "[object Object]" (will fail on unfixed code)
+  - Test environment variables: Database connectivity and Supabase integration should work (will fail on unfixed code)
+  - Test authentication flow: Signup completion should redirect to dashboard, not blank screen (will fail on unfixed code)
+  - Test CORS configuration: API calls should succeed from production domain (will fail on unfixed code)
+  - Run test on UNFIXED code deployed to Vercel
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the deployment bugs exist)
+  - Document counterexamples found: specific error messages, failed API calls, blank screens
+  - Mark task complete when test is written, run, and failures are documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Local Development Environment Functionality
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code in local development environment
+  - Test local API proxy: Vite proxy should correctly route `/api` calls to Flask backend
+  - Test local authentication: Signup, login, logout flows should work correctly
+  - Test local error handling: Error messages should display properly formatted
+  - Test local environment loading: `.env` file variables should load correctly
+  - Test local database connectivity: Supabase integration should work in development
+  - Write property-based tests capturing observed local development behavior patterns
+  - Property-based testing generates many test cases for stronger preservation guarantees
+  - Run tests on UNFIXED code in local development
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline local behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed local code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4_
+
+- [x] 3. Fix Vercel deployment issues
+
+  - [x] 3.1 Fix API routing configuration
+    - Replace experimental services configuration in `vercel.json`
+    - Add proper rewrites for `/api/*` routes to serverless functions
+    - Configure monorepo structure with frontend and backend deployments
+    - Ensure proper routing from frontend `/api` calls to `api/index.py`
+    - Test API routing with health check endpoint
+    - _Bug_Condition: isBugCondition(input) where input.environment == 'vercel_production' AND input.hasAPIRoutingIssues_
+    - _Expected_Behavior: API calls route correctly to serverless functions in production_
+    - _Preservation: Local Vite proxy configuration remains unchanged_
+    - _Requirements: 1.1, 1.3, 2.1, 2.3_
+
+  - [x] 3.2 Fix error serialization issues
+    - Modify error handlers in `backend/glowai/auth/routes.py` to return string messages
+    - Update exception handling to extract readable error messages from objects
+    - Ensure consistent JSON error response format across all endpoints
+    - Add proper error message extraction in `backend/app.py` global handlers
+    - Test error serialization with various error types
+    - _Bug_Condition: isBugCondition(input) where input.hasErrorSerializationIssues_
+    - _Expected_Behavior: Error messages display as readable text, not "[object Object]"_
+    - _Preservation: Local development error handling remains unchanged_
+    - _Requirements: 1.1, 2.1_
+
+  - [x] 3.3 Configure environment variables for Vercel
+    - Set SUPABASE_URL and SUPABASE_ANON_KEY in Vercel dashboard
+    - Configure FRONTEND_URL for CORS settings
+    - Add any missing environment variables required for production
+    - Update environment variable loading in application startup
+    - Test database connectivity with production environment variables
+    - _Bug_Condition: isBugCondition(input) where input.hasEnvironmentConfigIssues_
+    - _Expected_Behavior: Database connections and external services work in production_
+    - _Preservation: Local .env file loading remains unchanged_
+    - _Requirements: 1.4, 2.4_
+
+  - [x] 3.4 Fix authentication flow issues
+    - Improve error handling in `frontend/src/pages/AuthPages.tsx`
+    - Add better error object parsing for various response formats
+    - Add fallback error messages for serialization issues
+    - Ensure proper auth context updates after successful signup
+    - Test complete authentication flow from signup to dashboard redirect
+    - _Bug_Condition: isBugCondition(input) where input.hasAuthenticationFlowIssues_
+    - _Expected_Behavior: Users redirect to dashboard after successful signup_
+    - _Preservation: Local authentication flow remains unchanged_
+    - _Requirements: 1.2, 1.3, 2.2, 2.3_
+
+  - [x] 3.5 Configure CORS for production domain
+    - Update CORS configuration in `backend/app.py` to include Vercel deployment URL
+    - Add environment variable for frontend URL configuration
+    - Support wildcard origins for Vercel preview deployments
+    - Test CORS preflight requests from production domain
+    - _Bug_Condition: isBugCondition(input) where input.environment == 'vercel_production'_
+    - _Expected_Behavior: API calls succeed from production frontend domain_
+    - _Preservation: Local CORS configuration remains unchanged_
+    - _Requirements: 1.4, 2.4_
+
+  - [x] 3.6 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Vercel Production Deployment Success
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Deploy fixed code to Vercel and run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms deployment bugs are fixed)
+    - Verify API routing works correctly in production
+    - Verify error messages display properly, not "[object Object]"
+    - Verify authentication flow completes with dashboard redirect
+    - Verify environment variables and database connectivity work
+    - _Requirements: 2.1, 2.2, 2.3, 2.4_
+
+  - [x] 3.7 Verify preservation tests still pass
+    - **Property 2: Preservation** - Local Development Environment Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2 in local development
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions in local development)
+    - Confirm local API proxy still works correctly
+    - Confirm local authentication flows remain unchanged
+    - Confirm local error handling still works properly
+    - Confirm local environment loading remains functional
+    - Confirm all local development functionality is preserved
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Deploy fixed application to Vercel production environment
+  - Run complete test suite including bug condition and preservation tests
+  - Verify production deployment works correctly for all user flows
+  - Verify local development environment remains fully functional
+  - Document any remaining issues or edge cases discovered
+  - Ensure all tests pass, ask the user if questions arise

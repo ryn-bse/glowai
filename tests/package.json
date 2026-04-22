@@ -1,0 +1,18 @@
+{
+  "name": "vercel-deployment-tests",
+  "version": "1.0.0",
+  "description": "Bug condition exploration and preservation tests for Vercel deployment",
+  "scripts": {
+    "test:bug-exploration": "jest vercel_deployment_bug_exploration.test.js --verbose",
+    "test:preservation": "jest local_development_preservation.test.js --verbose",
+    "test:all": "jest --verbose"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "axios": "^1.6.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 30000
+  }
+}

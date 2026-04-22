@@ -41,8 +41,22 @@ export default function AuthPages() {
       login(res.data.user, res.data.token)
       navigate('/dashboard')
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } }
-      setErrors({ general: e.response?.data?.error ?? 'Invalid email or password.' })
+      const e = err as { response?: { data?: { error?: string | Record<string, unknown> } } }
+      
+      // Extract error message with better handling
+      let errorMsg = 'Invalid email or password.'
+      
+      if (e.response?.data?.error) {
+        const errorData = e.response.data.error
+        
+        if (typeof errorData === 'string') {
+          errorMsg = errorData
+        } else if (typeof errorData === 'object' && 'message' in errorData) {
+          errorMsg = String(errorData.message)
+        }
+      }
+      
+      setErrors({ general: errorMsg })
     } finally { setLoading(false) }
   }
 
@@ -94,22 +108,45 @@ export default function AuthPages() {
       login(res.data.user, res.data.token)
       navigate('/dashboard')
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { fields?: Record<string, string>; error?: string }; status?: number }; message?: string }
+      const e = err as { response?: { data?: { fields?: Record<string, string>; error?: string | Record<string, unknown> }; status?: number }; message?: string }
       console.error('Registration error:', err)
       console.error('Response data:', e.response?.data)
       
-      // Extract error message properly
+      // Extract error message with better handling for various formats
       let errorMsg = 'Registration failed. Please try again.'
+      
       if (e.response?.data?.error) {
-        errorMsg = typeof e.response.data.error === 'string' 
-          ? e.response.data.error 
-          : JSON.stringify(e.response.data.error)
+        const errorData = e.response.data.error
+        
+        // Handle different error formats
+        if (typeof errorData === 'string') {
+          errorMsg = errorData
+        } else if (typeof errorData === 'object') {
+          // If error is an object, try to extract meaningful message
+          if ('message' in errorData && typeof errorData.message === 'string') {
+            errorMsg = errorData.message
+          } else {
+            // Fallback: stringify the object
+            try {
+              errorMsg = JSON.stringify(errorData)
+            } catch {
+              errorMsg = 'Registration failed with an unknown error format'
+            }
+          }
+        }
       } else if (e.message) {
         errorMsg = e.message
       }
       
-      setErrors(e.response?.data?.fields ?? { general: errorMsg })
-      alert(`Registration failed: ${errorMsg}`) // Show alert for debugging
+      // Set field errors if available
+      if (e.response?.data?.fields) {
+        setErrors(e.response.data.fields)
+      } else {
+        setErrors({ general: errorMsg })
+      }
+      
+      // Show user-friendly alert
+      alert(`Registration failed: ${errorMsg}`)
     } finally { setLoading(false) }
   }
 

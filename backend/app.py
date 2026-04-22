@@ -4,7 +4,7 @@ import traceback
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-from flask import Flask, send_from_directory, jsonify
+from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS
 from glowai.api.analysis_bp import analysis_bp
 from glowai.api.recommendation_bp import recommendation_bp
@@ -16,17 +16,51 @@ from glowai.auth.routes import auth_bp
 
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "uploads")
 
-# Allowed origins — local dev + Vercel production
+# Allowed origins — local dev + Vercel production + preview deployments
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
     os.environ.get("FRONTEND_URL", ""),
 ]
 
+# Support Vercel preview deployments (*.vercel.app)
+VERCEL_DOMAIN_PATTERN = r"https://.*\.vercel\.app"
+
 
 def create_app():
     app = Flask(__name__, static_folder=None)
-    CORS(app, resources={r"/api/*": {"origins": [o for o in ALLOWED_ORIGINS if o]}})
+    
+    # CORS configuration with support for Vercel preview deployments
+    import re
+    
+    def is_allowed_origin(origin):
+        """Check if origin is allowed (including Vercel preview deployments)"""
+        if not origin:
+            return False
+        # Check exact matches
+        if origin in ALLOWED_ORIGINS:
+            return True
+        # Check Vercel domain pattern
+        if re.match(VERCEL_DOMAIN_PATTERN, origin):
+            return True
+        return False
+    
+    # Configure CORS with custom origin checker
+    CORS(app, 
+         resources={r"/api/*": {"origins": "*"}},  # Allow all for now, validate in requests
+         supports_credentials=True)
+    
+    # Add custom CORS validation
+    @app.after_request
+    def add_cors_headers(response):
+        origin = request.headers.get('Origin')
+        if origin and is_allowed_origin(origin):
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
+    
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
 
     # Don't initialize database on import - do it lazily on first request
@@ -75,19 +109,24 @@ def create_app():
 
     @app.errorhandler(400)
     def bad_request(e):
-        return jsonify({"error": str(e)}), 400
+        # Ensure error is a string
+        error_msg = str(e) if e else "Bad request"
+        return jsonify({"error": error_msg}), 400
 
     @app.errorhandler(401)
     def unauthorized(e):
-        return jsonify({"error": "unauthorized"}), 401
+        error_msg = str(e) if e else "Unauthorized"
+        return jsonify({"error": error_msg}), 401
 
     @app.errorhandler(403)
     def forbidden(e):
-        return jsonify({"error": "forbidden"}), 403
+        error_msg = str(e) if e else "Forbidden"
+        return jsonify({"error": error_msg}), 403
 
     @app.errorhandler(404)
     def not_found(e):
-        return jsonify({"error": "not_found"}), 404
+        error_msg = str(e) if e else "Not found"
+        return jsonify({"error": error_msg}), 404
 
     @app.errorhandler(500)
     def internal_error(e):
@@ -99,7 +138,9 @@ def create_app():
         print(str(e), file=sys.stderr)
         traceback.print_exc()
         print("=" * 80, file=sys.stderr)
-        return jsonify({"error": "internal_error", "message": str(e)}), 500
+        # Return string error message
+        error_msg = str(e) if e else "Internal server error"
+        return jsonify({"error": error_msg}), 500
 
     @app.errorhandler(Exception)
     def handle_exception(e):
@@ -111,7 +152,9 @@ def create_app():
         print(f"{type(e).__name__}: {str(e)}", file=sys.stderr)
         traceback.print_exc()
         print("=" * 80, file=sys.stderr)
-        return jsonify({"error": "server_error", "message": str(e), "type": type(e).__name__}), 500
+        # Return string error message
+        error_msg = str(e) if e else "Server error"
+        return jsonify({"error": error_msg, "type": type(e).__name__}), 500
 
     return app
 
