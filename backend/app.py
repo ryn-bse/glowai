@@ -1,4 +1,6 @@
 import os
+import sys
+import traceback
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -27,10 +29,9 @@ def create_app():
     CORS(app, resources={r"/api/*": {"origins": [o for o in ALLOWED_ORIGINS if o]}})
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
 
-    # Initialize database tables
-    from glowai.db import init_db
-    init_db()
-
+    # Don't initialize database on import - do it lazily on first request
+    # This prevents errors during cold starts
+    
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(analysis_bp, url_prefix="/api/analysis")
     app.register_blueprint(recommendation_bp, url_prefix="/api/recommendations")
@@ -116,7 +117,29 @@ def create_app():
 
 
 # Create app instance for Vercel
-app = create_app()
+try:
+    app = create_app()
+    print("✓ Flask app created successfully", file=sys.stderr)
+except Exception as e:
+    import sys
+    import traceback
+    print("=" * 80, file=sys.stderr)
+    print("FATAL ERROR: Failed to create Flask app", file=sys.stderr)
+    print(f"{type(e).__name__}: {str(e)}", file=sys.stderr)
+    traceback.print_exc()
+    print("=" * 80, file=sys.stderr)
+    
+    # Create a minimal error app
+    app = Flask(__name__)
+    
+    @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+    def error_handler(path):
+        return jsonify({
+            "error": "app_initialization_failed",
+            "message": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
