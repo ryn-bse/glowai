@@ -44,6 +44,34 @@ def create_app():
     def serve_upload(filename):
         return send_from_directory(os.path.abspath(UPLOAD_DIR), filename)
 
+    # Health check endpoint
+    @app.route("/api/health")
+    def health_check():
+        try:
+            from glowai.db import get_db
+            from glowai.supabase_auth import is_configured as auth_configured
+            
+            # Test database connection
+            db = get_db()
+            
+            # Test a simple query
+            result = db.table("users").select("id").limit(1).execute()
+            
+            return jsonify({
+                "status": "healthy",
+                "database": "connected",
+                "supabase_auth": "configured" if auth_configured() else "not_configured",
+                "environment": "production" if os.environ.get("VERCEL") else "development"
+            }), 200
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                "status": "unhealthy",
+                "error": str(e),
+                "type": type(e).__name__
+            }), 500
+
     @app.errorhandler(400)
     def bad_request(e):
         return jsonify({"error": str(e)}), 400
@@ -62,7 +90,27 @@ def create_app():
 
     @app.errorhandler(500)
     def internal_error(e):
-        return jsonify({"error": "internal_error"}), 500
+        import traceback
+        import sys
+        # Log the full error
+        print("=" * 80, file=sys.stderr)
+        print("500 INTERNAL SERVER ERROR:", file=sys.stderr)
+        print(str(e), file=sys.stderr)
+        traceback.print_exc()
+        print("=" * 80, file=sys.stderr)
+        return jsonify({"error": "internal_error", "message": str(e)}), 500
+
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        import traceback
+        import sys
+        # Log the full error
+        print("=" * 80, file=sys.stderr)
+        print("UNHANDLED EXCEPTION:", file=sys.stderr)
+        print(f"{type(e).__name__}: {str(e)}", file=sys.stderr)
+        traceback.print_exc()
+        print("=" * 80, file=sys.stderr)
+        return jsonify({"error": "server_error", "message": str(e), "type": type(e).__name__}), 500
 
     return app
 

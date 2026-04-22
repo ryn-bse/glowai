@@ -15,8 +15,19 @@ def get_db() -> Client:
     global _client
     if _client is None:
         if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+            import sys
+            print("ERROR: Missing Supabase credentials", file=sys.stderr)
+            print(f"SUPABASE_URL: {'set' if SUPABASE_URL else 'NOT SET'}", file=sys.stderr)
+            print(f"SUPABASE_SERVICE_KEY: {'set' if SUPABASE_SERVICE_KEY else 'NOT SET'}", file=sys.stderr)
             raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables must be set")
-        _client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        try:
+            _client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+            import sys
+            print(f"✓ Supabase client created successfully for {SUPABASE_URL}", file=sys.stderr)
+        except Exception as e:
+            import sys
+            print(f"ERROR creating Supabase client: {type(e).__name__}: {str(e)}", file=sys.stderr)
+            raise
     return _client
 
 

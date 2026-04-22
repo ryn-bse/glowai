@@ -4,6 +4,10 @@ from glowai.db import get_db
 def create_user(data: dict) -> dict:
     db = get_db()
     try:
+        import sys
+        print(f"Creating user with email: {data.get('email')}", file=sys.stderr)
+        print(f"User data keys: {list(data.keys())}", file=sys.stderr)
+        
         row = db.table("users").insert({
             "email": data["email"].lower().strip(),
             "password_hash": data.get("password_hash", ""),
@@ -19,9 +23,14 @@ def create_user(data: dict) -> dict:
             "oauth_provider": data.get("oauth_provider"),
             "oauth_id": data.get("oauth_id"),
         }).execute()
+        
+        print(f"✓ User created successfully: {row.data[0].get('id')}", file=sys.stderr)
         return _to_dict(row.data[0])
     except Exception as e:
-        print(f"Error creating user: {str(e)}")
+        import sys
+        import traceback
+        print(f"ERROR creating user: {type(e).__name__}: {str(e)}", file=sys.stderr)
+        traceback.print_exc()
         raise
 
 
